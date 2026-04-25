@@ -9,11 +9,14 @@ import csv
 import statistics
 from pathlib import Path
 
+import sys
+
 ROOT = Path(__file__).resolve().parents[1]
 RUNS = ROOT / "data" / "runs"
 
 TIERS = ["reflex", "memory", "social", "full"]
 SEEDS = [42, 7]
+PREFIX = sys.argv[1] if len(sys.argv) > 1 else "exp"  # {PREFIX}_<tier>_s<seed> or e2_<tier>_s<seed>
 METRICS = [
     "avg_survival_rate",
     "avg_fitness",
@@ -28,7 +31,7 @@ METRICS = [
 
 
 def load(tier: str, seed: int) -> list[dict]:
-    p = RUNS / f"exp_{tier}_s{seed}" / "metrics.csv"
+    p = RUNS / f"{PREFIX}_{tier}_s{seed}" / "metrics.csv"
     return list(csv.DictReader(p.open()))
 
 

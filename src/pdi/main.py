@@ -60,6 +60,10 @@ def cli() -> None:
 @click.option("--episodes", default=10, type=int, help="Episodes per generation.")
 @click.option("--grid", default=20, type=int, help="Grid size NxN.")
 @click.option("--steps", default=80, type=int, help="Max steps per episode.")
+@click.option("--food", default=30, type=int, help="Initial food count.")
+@click.option("--hazards", default=8, type=int, help="Hazard count.")
+@click.option("--shelters", default=4, type=int, help="Shelter count.")
+@click.option("--respawn", default=0.05, type=float, help="Food respawn rate per step.")
 @click.option(
     "--tier",
     type=click.Choice(["reflex", "memory", "social", "full"], case_sensitive=False),
@@ -69,10 +73,18 @@ def cli() -> None:
 @click.option("--seed", default=42, type=int, help="Random seed.")
 @click.option("--label", default="baseline", help="Human-readable label saved with the run.")
 @click.option("--run-id", default=None, help="Override auto-generated run id.")
-def run_cmd(generations, num_agents, episodes, grid, steps, tier, seed, label, run_id):
+def run_cmd(generations, num_agents, episodes, grid, steps, food, hazards, shelters, respawn,
+            tier, seed, label, run_id):
     """Run a full simulation and save outputs under data/runs/<run_id>/."""
     cfg = SimConfig(
-        env=EnvironmentConfig(grid_size=grid, max_steps=steps),
+        env=EnvironmentConfig(
+            grid_size=grid,
+            max_steps=steps,
+            num_food=food,
+            num_hazards=hazards,
+            num_shelters=shelters,
+            food_respawn_rate=respawn,
+        ),
         agent=AgentConfig(),
         evo=EvolutionConfig(
             population_size=num_agents,
