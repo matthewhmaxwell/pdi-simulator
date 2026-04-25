@@ -1,5 +1,7 @@
 # Experiment 002 — Tier Ablation in a Harder Environment
 
+> **Update (E003 follow-up):** the "thesis supported" framing below was overclaim from n=2 seeds and 3 simultaneously-changed knobs. [EXPERIMENT_003.md](EXPERIMENT_003.md) re-runs at 5 seeds and isolates each knob. The directional finding holds (full > reflex by +0.09 survival, sign-consistent across all 5 seeds), but: **no single environmental knob produces the inversion** — only the full combination does. Read E003 for the calibrated version.
+
 **Question:** When the environment makes survival genuinely costly, does climbing the cognition lineage finally pay off?
 
 **Setup:** Same as E001 (20 gen × 50 agents × 10 ep, grid 20×20, 80 steps, seeds 42 + 7), with environment knobs tightened:
