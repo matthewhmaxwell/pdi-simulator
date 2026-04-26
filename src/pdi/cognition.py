@@ -98,28 +98,51 @@ class ReflexPolicy(CognitionPolicy):
 
 
 class MemoryPolicy(ReflexPolicy):
-    """Tier 1: reflex + consult memory for state-action values."""
+    """Tier 1: reflex + consult memory for state-action values.
+
+    Memory is a *fallback* for ambiguous situations, not a replacement for
+    goal-directed behavior. The action-priority order matches ReflexPolicy
+    exactly (food-seeking → hazard dodge → shelter when hurt) so the only
+    behavioral delta vs. reflex is what happens in the otherwise-random
+    fallback slot: a memory consult instead of a coin flip.
+
+    Why "food first" before hazard: in scarcity regimes, agents that defer
+    food-seeking to dodge nearby hazards starve before they reach food.
+    The fitness function already penalizes hazard damage; the priority
+    order is empirically tuned. (See E004 writeup for the failed v1 fix
+    that put hazard before food and tanked survival 0.21 points.)
+    """
 
     def choose_action(self, observation, position, memory, social, causal, energy, health) -> Action:
-        # Hazard dodging is still reflexive.
         pos = (position.x, position.y)
-        for hz in observation["hazards"]:
-            if _distance(pos, hz) <= 1:
-                return _best_direction_away(pos, hz)
 
-        # Urgent needs still override.
+        # Visible food → walk toward it (or collect underfoot). Matches reflex.
         if observation["food"]:
             nearest = min(observation["food"], key=lambda f: _distance(pos, f))
             if nearest == pos:
                 return "collect"
+            return _best_direction_toward(pos, nearest)
 
-        # Memory-guided action if confident enough.
+        # Avoid adjacent hazards (only after food check, matching reflex).
+        for hz in observation["hazards"]:
+            if _distance(pos, hz) <= 1:
+                return _best_direction_away(pos, hz)
+
+        # Hurt and shelter visible → rest there.
+        if health < 20 and observation["shelters"]:
+            nearest = min(observation["shelters"], key=lambda s: _distance(pos, s))
+            if nearest == pos:
+                return "rest"
+            return _best_direction_toward(pos, nearest)
+
+        # No urgent action → consult memory if we trust it. This is the only
+        # slot where MemoryPolicy diverges from ReflexPolicy.
         if self.rng.random() < self.genome.memory_reliance:
             suggested = memory.most_common_successful_action(observation)
             if suggested is not None:
                 return suggested
 
-        return super().choose_action(observation, position, memory, social, causal, energy, health)
+        return self.rng.choice(["move_n", "move_s", "move_e", "move_w", "observe"])
 
 
 class SocialMemoryPolicy(MemoryPolicy):

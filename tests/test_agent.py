@@ -84,6 +84,42 @@ def test_agent_learn_updates_memory_and_causal():
     assert any(cb.action == "collect" for cb in agent.causal.values())
 
 
+def test_memory_policy_walks_toward_visible_food_not_consults_memory():
+    """Regression test for the bug found in E003: MemoryPolicy used to skip
+    food-seeking and consult memory instead, causing it to underperform reflex.
+    Memory must be a fallback after goal-directed behavior, not a replacement.
+    """
+    rng = random.Random(0)
+    # Force memory_reliance=1.0 so that, before the fix, memory consultation
+    # would always preempt food-seeking.
+    agent = Agent.spawn(
+        generation=0, cfg=AgentConfig(), cognition_tier="memory", rng=rng,
+        strategy=StrategyGenome(memory_reliance=1.0),
+        position=Position(x=5, y=5),
+    )
+    # Seed memory with a wildly suboptimal action ("observe") that "succeeded"
+    # in food_near contexts. Pre-fix, the policy would return "observe" instead
+    # of moving toward the visible food.
+    obs_with_food = {
+        "food": [(7, 5)], "hazards": [], "shelters": [], "others": [],
+    }
+    for _ in range(5):
+        agent._pending_prediction = None  # bypass prediction-tracking path
+        agent.learn_from_outcome(
+            episode_id="seed", timestamp=0,
+            observation=obs_with_food, action="observe",
+            reward_delta=10.0, outcome="trick", other_agents_present=[],
+        )
+
+    # Now ask for a decision in the same context. Should walk EAST toward food
+    # at (7,5), not return "observe".
+    act = agent.decide(obs_with_food)
+    assert act == "move_e", (
+        f"MemoryPolicy must walk toward visible food before consulting memory; "
+        f"got {act!r}"
+    )
+
+
 def test_self_model_updates_reflect_episode():
     rng = random.Random(0)
     agent = Agent.spawn(generation=0, cfg=AgentConfig(), cognition_tier="full", rng=rng,
