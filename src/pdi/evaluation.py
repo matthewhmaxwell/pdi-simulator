@@ -69,6 +69,14 @@ def aggregate_generation(
     avg_fit = statistics.mean(a.state.fitness_score for a in agents)
     improvement = avg_fit - baseline_fitness if baseline_fitness else 0.0
 
+    # Decoupled per-component scores (mean across agents). Empty dict if
+    # update_fitness hasn't been called yet for this generation.
+    def _component_mean(name: str) -> float:
+        vals = [a.score_components.get(name, 0.0) for a in agents]
+        return statistics.mean(vals) if vals else 0.0
+
+    avg_novelty = statistics.mean(len(a.novel_state_tags) for a in agents) if agents else 0.0
+
     return GenerationMetrics(
         generation=generation,
         avg_survival_rate=survival_rate,
@@ -81,6 +89,11 @@ def aggregate_generation(
         memory_usefulness=_memory_usefulness(agents),
         strategy_diversity=_strategy_diversity(agents),
         improvement_vs_baseline=improvement,
+        avg_novelty=avg_novelty,
+        survival_score_mean=_component_mean("survival"),
+        foraging_score_mean=_component_mean("foraging"),
+        cooperation_score_mean=_component_mean("cooperation"),
+        prediction_score_mean=_component_mean("prediction"),
     )
 
 

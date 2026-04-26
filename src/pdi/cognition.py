@@ -242,6 +242,40 @@ class FullPolicy(SocialMemoryPolicy):
         return super().choose_action(observation, position, memory, social, causal, energy, health)
 
 
+class LLMPolicy(FullPolicy):
+    """Tier 4 (stub): an LLM-driven policy with the same interface as the
+    rule-based tiers.
+
+    Status: **interface-only stub.** This subclass exists so the wiring is
+    in place — the CLI accepts `--tier llm`, the evolution loop and CLI
+    treat it like any other tier — but the actual LLM call is not yet
+    implemented. Calling `choose_action` falls back to `FullPolicy` so runs
+    don't crash; an `_llm_call_count` attribute would track real LLM calls
+    once we wire them.
+
+    The intended implementation (E010+):
+      1. Render `observation` + a small slice of `memory.events` +
+         `social.beliefs` into a compact prompt.
+      2. Ask Claude (via the Anthropic SDK with prompt caching on the
+         system prompt) for an action from `ALL_ACTIONS`.
+      3. Parse, validate, and return.
+      4. Record the LLM-suggested action in memory like any other action.
+
+    Why this matters: with a working LLMPolicy we can compare rule-based
+    cognition against LLM cognition on the same env + same metrics, which
+    is the cleanest "does an LLM beat hand-rolled heuristics here?" test.
+    """
+
+    def __init__(self, genome: StrategyGenome, rng: random.Random):
+        super().__init__(genome, rng)
+        self._llm_call_count = 0  # bumps when the real call is wired
+
+    def choose_action(self, observation, position, memory, social, causal, energy, health) -> Action:
+        # TODO(E010): real LLM call here. For now we delegate to FullPolicy so
+        # the simulator stays runnable and `--tier llm` is exercisable end-to-end.
+        return super().choose_action(observation, position, memory, social, causal, energy, health)
+
+
 def build_policy(tier: str, genome: StrategyGenome, rng: random.Random) -> CognitionPolicy:
     tier = tier.lower()
     if tier == "reflex":
@@ -250,4 +284,6 @@ def build_policy(tier: str, genome: StrategyGenome, rng: random.Random) -> Cogni
         return MemoryPolicy(genome, rng)
     if tier == "social":
         return SocialMemoryPolicy(genome, rng)
+    if tier == "llm":
+        return LLMPolicy(genome, rng)
     return FullPolicy(genome, rng)

@@ -18,7 +18,7 @@ from pathlib import Path
 
 import click
 
-from .config import AgentConfig, EnvironmentConfig, EvolutionConfig, SimConfig
+from .config import AgentConfig, EnvironmentConfig, EvolutionConfig, FitnessWeights, SimConfig
 from .evaluation import aggregate_generation, export_run_csv, export_run_json
 from .evolution import run_episode, seed_population, select_and_breed
 from .logging_utils import append_jsonl, get_logger
@@ -63,19 +63,33 @@ def cli() -> None:
 @click.option("--food", default=30, type=int, help="Initial food count.")
 @click.option("--hazards", default=8, type=int, help="Hazard count.")
 @click.option("--shelters", default=4, type=int, help="Shelter count.")
-@click.option("--respawn", default=0.05, type=float, help="Food respawn rate per step.")
+@click.option("--respawn", default=0.05, type=float,
+              help="Food respawn rate per step (cyclic env: 1/respawn = period).")
+@click.option(
+    "--env",
+    "env_name",
+    type=click.Choice(["grid", "cyclic"], case_sensitive=False),
+    default="grid",
+    help="Environment type. 'cyclic' has fixed feeding grounds with periodic respawn.",
+)
 @click.option(
     "--tier",
-    type=click.Choice(["reflex", "memory", "social", "full"], case_sensitive=False),
+    type=click.Choice(["reflex", "memory", "social", "full", "llm"], case_sensitive=False),
     default="full",
     help="Cognition tier. Use to run comparison experiments.",
 )
+@click.option("--no-coop-fitness", is_flag=True,
+              help="Zero out the cooperation fitness bonus (E008-style ablation).")
 @click.option("--seed", default=42, type=int, help="Random seed.")
 @click.option("--label", default="baseline", help="Human-readable label saved with the run.")
 @click.option("--run-id", default=None, help="Override auto-generated run id.")
 def run_cmd(generations, num_agents, episodes, grid, steps, food, hazards, shelters, respawn,
-            tier, seed, label, run_id):
+            env_name, tier, no_coop_fitness, seed, label, run_id):
     """Run a full simulation and save outputs under data/runs/<run_id>/."""
+    fitness_weights = FitnessWeights()
+    if no_coop_fitness:
+        fitness_weights.cooperation = 0.0
+        fitness_weights.betrayal_penalty = 0.0
     cfg = SimConfig(
         env=EnvironmentConfig(
             grid_size=grid,
@@ -91,8 +105,10 @@ def run_cmd(generations, num_agents, episodes, grid, steps, food, hazards, shelt
             generations=generations,
             episodes_per_generation=episodes,
             cognition_tier=tier.lower(),
+            env_name=env_name.lower(),
             random_seed=seed,
         ),
+        fitness=fitness_weights,
         run_label=label,
     )
     run_id = run_id or f"{int(time.time())}_{uuid.uuid4().hex[:6]}_{label}"
@@ -103,7 +119,10 @@ def run_cmd(generations, num_agents, episodes, grid, steps, food, hazards, shelt
     gen_log = rd / "generations.jsonl"
 
     rng = random.Random(cfg.evo.random_seed)
-    log.info(f"[run {run_id}] tier={tier} pop={num_agents} gens={generations} eps/gen={episodes}")
+    log.info(
+        f"[run {run_id}] env={env_name} tier={tier} pop={num_agents} "
+        f"gens={generations} eps/gen={episodes} coop_fit={'off' if no_coop_fitness else 'on'}"
+    )
 
     agents = seed_population(cfg, rng)
     all_gen_metrics = []
@@ -117,7 +136,11 @@ def run_cmd(generations, num_agents, episodes, grid, steps, food, hazards, shelt
 
         episodes_this_gen = []
         for ep_idx in range(cfg.evo.episodes_per_generation):
-            result = run_episode(agents, cfg.env, gen, rng)
+            result = run_episode(
+                agents, cfg.env, gen, rng,
+                env_name=cfg.evo.env_name,
+                fitness_weights=cfg.fitness,
+            )
             episodes_this_gen.append(result)
             append_jsonl(episode_log, {
                 "generation": gen,

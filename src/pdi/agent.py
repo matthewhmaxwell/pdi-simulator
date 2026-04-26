@@ -9,7 +9,7 @@ import random
 import uuid
 from typing import Optional
 
-from .config import AgentConfig
+from .config import AgentConfig, FitnessWeights
 from .cognition import CognitionPolicy, build_policy
 from .memory import MemoryStore, _state_tag
 from .schemas import (
@@ -52,6 +52,12 @@ class Agent:
         self.betrayal_events = 0
         self.predictions_made = 0
         self.predictions_correct = 0
+        # Novelty: unique state-tags visited this episode. Useful as a
+        # cognition-independent signal of exploration / curiosity.
+        self.novel_state_tags: set[str] = set()
+        # Decoupled per-component scores, populated by update_fitness so they
+        # can be exported separately and the composite stays auditable.
+        self.score_components: dict[str, float] = {}
 
     # ---------- factory ----------
 
@@ -89,6 +95,8 @@ class Agent:
         self.betrayal_events = 0
         self.predictions_made = 0
         self.predictions_correct = 0
+        self.novel_state_tags = set()
+        self.score_components = {}
 
     # ---------- observe / decide ----------
 
@@ -143,6 +151,8 @@ class Agent:
             usefulness=max(0.0, reward_delta / 10.0),
         )
         self.memory.add(ev)
+        # Track novelty: count this state-tag as visited.
+        self.novel_state_tags.add(_state_tag(observation))
         # Reinforce retrieval of memories that matched this observation; they
         # proved useful enough to consult.
         similar = self.memory.retrieve_similar(observation, action=action, k=3)
@@ -184,22 +194,27 @@ class Agent:
 
     # ---------- fitness ----------
 
-    def update_fitness(self) -> None:
-        survival_bonus = 20.0 if self.state.alive else 0.0
-        efficiency = self.food_collected * 4.0
-        cooperation_bonus = self.cooperation_events * 2.0
-        betrayal_penalty = self.betrayal_events * 1.0
+    def update_fitness(self, weights: FitnessWeights | None = None) -> None:
+        """Compute and apply fitness from weighted per-component scores.
+
+        Each component is also stored in `self.score_components` so it can be
+        exported and inspected separately. To ablate the cooperation tautology
+        (E008), pass a `FitnessWeights` with `cooperation=0`.
+        """
+        w = weights or FitnessWeights()
         prediction_accuracy = (
             self.predictions_correct / self.predictions_made if self.predictions_made else 0.0
         )
-        self.state.fitness_score += (
-            survival_bonus
-            + efficiency
-            + cooperation_bonus
-            - betrayal_penalty
-            + 5.0 * prediction_accuracy
-            + 0.2 * self.state.energy
-        )
+        components = {
+            "survival": w.survival if self.state.alive else 0.0,
+            "foraging": w.foraging * self.food_collected,
+            "cooperation": w.cooperation * self.cooperation_events,
+            "betrayal_penalty": -w.betrayal_penalty * self.betrayal_events,
+            "prediction": w.prediction * prediction_accuracy,
+            "energy": w.energy * self.state.energy,
+        }
+        self.score_components = components
+        self.state.fitness_score += sum(components.values())
 
     # ---------- self-model ----------
 

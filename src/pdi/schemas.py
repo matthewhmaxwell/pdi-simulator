@@ -131,3 +131,9 @@ class GenerationMetrics(BaseModel):
     memory_usefulness: float
     strategy_diversity: float
     improvement_vs_baseline: float
+    # Decoupled signals — do not feed into composite fitness, just observed.
+    avg_novelty: float = 0.0  # mean unique state-tags per agent per episode
+    survival_score_mean: float = 0.0  # weight-isolated survival contribution
+    foraging_score_mean: float = 0.0
+    cooperation_score_mean: float = 0.0
+    prediction_score_mean: float = 0.0

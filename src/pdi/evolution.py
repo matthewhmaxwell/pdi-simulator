@@ -15,7 +15,7 @@ from typing import Optional
 
 from .agent import Agent
 from .config import SimConfig
-from .environment import Environment
+from .environments import BaseEnvironment, make_environment
 from .schemas import (
     ALL_ACTIONS,
     Action,
@@ -48,7 +48,7 @@ def _clip(v: float, lo: float = 0.0, hi: float = 1.0) -> float:
 def _apply_action(
     agent: Agent,
     action: Action,
-    env: Environment,
+    env: BaseEnvironment,
     agent_positions: dict[str, Position],
     agents_by_id: dict[str, Agent],
     observation: dict,
@@ -222,8 +222,10 @@ def run_episode(
     env_cfg,
     generation: int,
     rng: random.Random,
+    env_name: str = "grid",
+    fitness_weights=None,
 ) -> EpisodeResult:
-    env = Environment(env_cfg, rng)
+    env = make_environment(env_name, env_cfg, rng)
     episode_id = f"g{generation}_e{uuid.uuid4().hex[:6]}"
 
     # Place agents.
@@ -274,7 +276,7 @@ def run_episode(
 
     # Update fitness & self-model per agent after episode.
     for a in agents:
-        a.update_fitness()
+        a.update_fitness(weights=fitness_weights)
         a.update_self_model()
 
     return EpisodeResult(

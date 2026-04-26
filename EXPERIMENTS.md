@@ -10,6 +10,8 @@ When adding a new experiment, follow the [`docs/EXPERIMENT_TEMPLATE.md`](docs/EX
 | E002  | 2026-04-24 | Does cognition pay off in a harder environment (food=15, haz=20, respawn=0.02)?       | Survival ranking flips: full=0.60 > reflex=0.48. Pro-social selection emerges. (n=2 seeds — see E003.) | [EXPERIMENT_002.md](EXPERIMENT_002.md)   |
 | E003  | 2026-04-25 | Is the E002 result robust across seeds, and which environmental knob caused it?       | Sign-consistent across 5 seeds (full−reflex = +0.093 ± 0.040). **No single knob produces the inversion**; only the combined three-knob regime does. | [EXPERIMENT_003.md](EXPERIMENT_003.md)   |
 | E004  | 2026-04-26 | Why does memory tier consistently underperform reflex? (E003 anomaly)                 | The "underperformance" was variance, not a mean gap. v1 fix tanked survival 0.21; v2 fix matched reflex priority order and cut variance 3.5×. | [EXPERIMENT_004.md](EXPERIMENT_004.md)   |
+| Refit | 2026-04-26 | Convert toy testbed → defensible foundation: pluggable envs, decoupled fitness, LLM-tier stub, novelty metric. | Phase-1 foundation refit. New `environments/` package, `CyclicEnvironment` for temporal structure, `FitnessWeights` for tautology ablation, `LLMPolicy` stub. 32 tests pass. See [ROADMAP.md](ROADMAP.md). | [ROADMAP.md](ROADMAP.md)                  |
+| E005  | 2026-04-26 | Does memory tier outperform reflex when the env has temporal structure to learn?      | First monotonic tier ordering observed (reflex<memory<social<full). Full > reflex by +0.086, sign-consistent on 5 seeds — generalizes E003 to a new env. Memory's individual lift is weak (+0.015, not sign-consistent) — bottlenecked by retrieval, hypothesis not confirmed as stated. | [EXPERIMENT_005.md](EXPERIMENT_005.md)   |
 
 ## What we've established so far
 
@@ -19,6 +21,8 @@ Read in this order:
 3. **The pay-off requires multi-factor pressure.** No single knob (food scarcity, hazards, slow respawn) produces the inversion. Only the combination does ([E003](EXPERIMENT_003.md)).
 4. **Pro-social selection is real.** Across all seeds in cognitive tiers, betrayal frequency drops over generations without being penalized in the fitness function ([E003](EXPERIMENT_003.md)).
 5. **The "memory underperforms reflex" anomaly was variance, not a real mean gap.** Pre-fix memory was 0.460 ± 0.078 vs reflex's 0.475 ± 0.018. After a (failed) v1 fix and a (correct) v2 fix matching reflex's priority order, memory is now 0.486 ± 0.022 — same mean, **3.5× tighter variance**. Details in [E004](EXPERIMENT_004.md).
+6. **The full-tier survival advantage generalizes to a structurally different env** ([E005](EXPERIMENT_005.md)). The +0.086 ± 0.037 in cyclic env is essentially the same magnitude as +0.093 ± 0.040 in the E003 hard grid env. Sign-consistent across 5 seeds. Plus: first monotonic tier ordering observed.
+7. **Memory tier's lift is bottlenecked by retrieval, not by env design** ([E005](EXPERIMENT_005.md)). Even with explicit temporal structure, current `MemoryStore` retrieves by state-tag overlap not timestamp pattern, so memory tier can't exploit periodicity. Real test of the hypothesis requires building time-aware retrieval.
 
 ## What's still load-bearing but unverified
 
@@ -28,9 +32,12 @@ Read in this order:
 
 ## Open questions ranked
 
-1. Does SocialMemoryPolicy have the same hazard-before-food bug as MemoryPolicy v1? Apply the same priority fix and re-measure (E005).
-2. Re-run knob isolation with v2 memory — does the E003 attribution story hold? (E006)
-3. Design an env where memory should genuinely help (cyclic respawn). Does memory tier finally beat reflex? (E007)
-4. Decouple cooperation from fitness (zero out `cooperation_bonus`). Does full > reflex hold without the tautological reward? (E008)
-5. Can we add **culture** (memory inheritance) without re-introducing the same kind of policy bugs? (E009)
-6. What does shared intentionality look like as an environment mechanic — a tile only harvestable by ≥2 agents acting in concert? (E010)
+(See [ROADMAP.md](ROADMAP.md) for the phased plan; the items below are the Phase-2 verification queue.)
+
+1. **E005 — Cyclic env tier ablation.** Does memory tier finally beat reflex when the env has temporal structure to learn? _Running now._
+2. **E006 — Knob isolation with v2 memory + decoupled fitness.** Re-run E003's per-knob attribution with the corrected memory tier and `--no-coop-fitness`. Does the story hold?
+3. **E007 — `--no-coop-fitness` on E002 hard-env.** Does full > reflex on survival hold without the tautological cooperation reward? Most important test in the queue.
+4. **E008 — n=20 seeds on the headline.** Convert "suggestive" (n=5) to "robust" (n=20, sign-consistency → binomial p ≤ 9.5e-7).
+5. **E009 — Transfer evaluation.** Train in env A, evaluate (no learning) in env B. Generalization is the actual proxy for "intelligence."
+6. **E010 — Real `LLMPolicy` implementation.** Wire the Anthropic SDK with prompt caching; compare LLM tier against rule-based on transfer envs.
+7. **E011+ — Add cognitive layers** (theory of mind, shared intentionality, culture) only after Phase 2 verification clears.

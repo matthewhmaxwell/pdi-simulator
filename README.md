@@ -1,8 +1,8 @@
 # Primate Developmental Intelligence Simulator
 
-Primate Developmental Intelligence Simulator is a research sandbox for studying whether increasingly general agent behavior can emerge from staged environmental interaction, causal learning, social pressure, memory evolution, and selection across generations.
+A small evolutionary sandbox with **pluggable environments**, **swappable cognition tiers** (reflex / memory / social / full / LLM), **decoupled fitness components**, and an honest experimental record. Designed so each cognitive layer can be turned on, off, or compared in isolation.
 
-This is **not** "LLM agents in a chatroom." It is a developmental-evolutionary simulation where intelligence is hypothesized to emerge from pressures, not prompts.
+The aspirational name precedes the science by a wide margin — see [ROADMAP.md](ROADMAP.md) for an honest discussion of what we have versus what we'd need to earn the bigger labels. This is currently a defensible foundation for additional intelligence-research work, **not** yet a model of primate cognition or general intelligence.
 
 ## The thesis
 
@@ -100,9 +100,30 @@ pdi run --tier social --label t2_social --seed 42
 
 # Tier 3 — + causal beliefs + curiosity + exploitation
 pdi run --tier full --label t3_full --seed 42
+
+# Tier 4 — LLM policy (currently a stub that falls through to full; see ROADMAP)
+pdi run --tier llm --label t4_llm --seed 42
 ```
 
 Compare `data/runs/<run_id>/metrics.csv` across tiers. If adding cognition actually helps, you'll see survival, fitness, and prediction accuracy climb as you go up tiers.
+
+### Switching environments
+
+```bash
+# Default: random-respawn grid world (no temporal structure for memory to exploit)
+pdi run --env grid --tier full
+
+# Cyclic env: fixed feeding grounds with periodic respawn (memory should pay off)
+pdi run --env cyclic --tier full --respawn 0.05  # respawn period = 1/0.05 = 20 steps
+```
+
+### Ablating tautologies
+
+```bash
+# Zero out the cooperation fitness bonus to test whether the cognition-tier
+# survival win holds without the direct fitness reward for cooperation events.
+pdi run --tier full --no-coop-fitness --label e7_decoupled
+```
 
 ### Other commands
 
@@ -153,6 +174,12 @@ pytest
 
 ## What to try next
 
+See [ROADMAP.md](ROADMAP.md) for the phased plan. Current Phase-2 priorities:
+1. **E007** — `--no-coop-fitness` on hard-env: does cognition still win without the tautological reward?
+2. **E008** — n=20 seeds on the headline finding to convert "suggestive" → "robust."
+3. **E009** — transfer evaluation: train in env A, test (no learning) in env B.
+
+Longer-horizon Phase 3 (only after Phase 2 verifies):
 - Add **shared intentionality** (two agents collaborating on a goal that requires both).
 - Add **culture**: let offspring inherit a summary of a parent's useful memories.
 - Plug in an **LLM policy** as a new `CognitionPolicy` subclass and compare against the rule-based full tier.
