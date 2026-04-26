@@ -1,6 +1,8 @@
 # Experiment 002 — Tier Ablation in a Harder Environment
 
 > **Update (E003 follow-up):** the "thesis supported" framing below was overclaim from n=2 seeds and 3 simultaneously-changed knobs. [EXPERIMENT_003.md](EXPERIMENT_003.md) re-runs at 5 seeds and isolates each knob. The directional finding holds (full > reflex by +0.09 survival, sign-consistent across all 5 seeds), but: **no single environmental knob produces the inversion** — only the full combination does. Read E003 for the calibrated version.
+>
+> **Update (E007 follow-up):** the "pro-social selection emerges" framing below is also wrong. [EXPERIMENT_007.md](EXPERIMENT_007.md) ablates the cooperation reward in the fitness function and finds: (a) cognitive agents nearly stop cooperating (1500/ep → 10/ep), and (b) full > reflex on survival becomes ~3× *larger* (+0.240 instead of +0.093). The cooperation tautology was masking the cognition advantage by rewarding agents for burning energy on share events that hurt survival. The "pro-social" behavior was a fitness-function artifact, not emergent.
 
 **Question:** When the environment makes survival genuinely costly, does climbing the cognition lineage finally pay off?
 
