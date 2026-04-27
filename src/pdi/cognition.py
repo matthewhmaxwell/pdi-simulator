@@ -98,23 +98,30 @@ class ReflexPolicy(CognitionPolicy):
 
 
 class MemoryPolicy(ReflexPolicy):
-    """Tier 1: reflex + consult memory for state-action values.
+    """Tier 1: reflex + memory.
 
-    Memory is a *fallback* for ambiguous situations, not a replacement for
-    goal-directed behavior. The action-priority order matches ReflexPolicy
-    exactly (food-seeking → hazard dodge → shelter when hurt) so the only
-    behavioral delta vs. reflex is what happens in the otherwise-random
-    fallback slot: a memory consult instead of a coin flip.
+    Two memory affordances:
+      1. **Action-pattern recall** ([`MemoryStore.most_common_successful_action`]):
+         in ambiguous (no-food, no-hazard, healthy) situations, suggest the
+         action that has worked best in similar past states.
+      2. **Time-aware tile prediction** ([`MemoryStore.predict_food_return`]):
+         when standing on (or adjacent to) a *known feeding ground* with no
+         food currently visible, check whether memory predicts food will
+         reappear here soon. If so, wait (or step toward it) instead of
+         walking away. This is what lets memory tier exploit periodic-respawn
+         envs that reflex cannot.
 
-    Why "food first" before hazard: in scarcity regimes, agents that defer
-    food-seeking to dodge nearby hazards starve before they reach food.
-    The fitness function already penalizes hazard damage; the priority
-    order is empirically tuned. (See E004 writeup for the failed v1 fix
-    that put hazard before food and tanked survival 0.21 points.)
+    Action priority matches ReflexPolicy (food-seeking → hazard dodge →
+    shelter) so the policy stays survival-stable. The two memory hooks slot in
+    at the no-urgent-action fallback. Added in E006.
     """
+
+    # Threshold (steps) for "food is coming soon, worth waiting".
+    _wait_threshold_steps: int = 5
 
     def choose_action(self, observation, position, memory, social, causal, energy, health) -> Action:
         pos = (position.x, position.y)
+        step = observation.get("step", 0)
 
         # Visible food → walk toward it (or collect underfoot). Matches reflex.
         if observation["food"]:
@@ -135,8 +142,45 @@ class MemoryPolicy(ReflexPolicy):
                 return "rest"
             return _best_direction_toward(pos, nearest)
 
-        # No urgent action → consult memory if we trust it. This is the only
-        # slot where MemoryPolicy diverges from ReflexPolicy.
+        # E006: time-aware tile prediction. If memory says food returns soon
+        # at our current tile, wait for it.
+        if memory.known_feeding_ground(pos):
+            steps_until = memory.predict_food_return(pos, step)
+            if steps_until is not None and steps_until <= self._wait_threshold_steps:
+                # Trust this only proportional to memory_reliance.
+                if self.rng.random() < self.genome.memory_reliance:
+                    return "observe"
+
+        # E006: also consider walking toward a known feeding ground in vision
+        # range whose food is predicted to return soon. We use the agent's
+        # vision: any nearby tile we've previously seen food at is a candidate.
+        if self.rng.random() < self.genome.memory_reliance * 0.5:
+            best_target = None
+            best_score = float("inf")
+            r = 5  # search radius around current position in own memory
+            for dx in range(-r, r + 1):
+                for dy in range(-r, r + 1):
+                    if dx == 0 and dy == 0:
+                        continue
+                    candidate = (pos[0] + dx, pos[1] + dy)
+                    if not memory.known_feeding_ground(candidate):
+                        continue
+                    steps_until = memory.predict_food_return(candidate, step)
+                    if steps_until is None:
+                        continue
+                    # Composite score: shorter wait + closer is better.
+                    travel = _distance(pos, candidate)
+                    arrival = travel  # 1 step per tile
+                    # We want food to be present when we arrive — minimize |steps_until - travel|.
+                    score = abs(steps_until - travel)
+                    if score < best_score:
+                        best_score = score
+                        best_target = candidate
+            if best_target is not None and best_score <= self._wait_threshold_steps:
+                return _best_direction_toward(pos, best_target)
+
+        # No urgent action and no useful temporal prediction → fall back to
+        # action-pattern recall (E004 v2 behavior).
         if self.rng.random() < self.genome.memory_reliance:
             suggested = memory.most_common_successful_action(observation)
             if suggested is not None:

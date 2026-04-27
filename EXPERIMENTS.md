@@ -13,6 +13,8 @@ When adding a new experiment, follow the [`docs/EXPERIMENT_TEMPLATE.md`](docs/EX
 | Refit | 2026-04-26 | Convert toy testbed → defensible foundation: pluggable envs, decoupled fitness, LLM-tier stub, novelty metric. | Phase-1 foundation refit. New `environments/` package, `CyclicEnvironment` for temporal structure, `FitnessWeights` for tautology ablation, `LLMPolicy` stub. 32 tests pass. See [ROADMAP.md](ROADMAP.md). | [ROADMAP.md](ROADMAP.md)                  |
 | E005  | 2026-04-26 | Does memory tier outperform reflex when the env has temporal structure to learn?      | First monotonic tier ordering observed (reflex<memory<social<full). Full > reflex by +0.086, sign-consistent on 5 seeds — generalizes E003 to a new env. Memory's individual lift is weak (+0.015, not sign-consistent) — bottlenecked by retrieval, hypothesis not confirmed as stated. | [EXPERIMENT_005.md](EXPERIMENT_005.md)   |
 | E007  | 2026-04-26 | Does full > reflex hold when we ablate the cooperation tautology in fitness?          | **Bigger, not smaller.** Without coop-reward, gap is +0.298 cyclic / +0.240 grid — ~3× larger than before, sign-consistent in both envs. Tautology was *masking* the advantage. Cognitive agents stopped cooperating (1500/ep → 10/ep) and survived more. "Pro-social selection" from E003 was a fitness-function artifact. | [EXPERIMENT_007.md](EXPERIMENT_007.md)   |
+| E008  | 2026-04-27 | Does the E007 finding survive at n=20 seeds?                                          | **Yes.** Cyclic: +0.290 ± 0.038, **20/20 seeds positive**, p=1.91e-06. Hard grid: +0.243 ± 0.046, **20/20 seeds positive**, p=1.91e-06. n=20 means within ±0.008 of n=5 estimates. | [EXPERIMENT_008.md](EXPERIMENT_008.md)   |
+| E006  | 2026-04-27 | Does memory tier finally outperform reflex once retrieval is time-aware?              | **Yes.** Built per-tile food-observation history + `predict_food_return`. Memory tier in cyclic env: 0.629 → 0.767 (+0.138 paired-seed lift). Memory − reflex gap: +0.015 → +0.153, sign-positive 5/5 seeds. The E005 prediction was correct. | [EXPERIMENT_006.md](EXPERIMENT_006.md)   |
 
 ## What we've established so far
 
@@ -26,6 +28,8 @@ Read in this order:
 7. **Memory tier's lift is bottlenecked by retrieval, not by env design** ([E005](EXPERIMENT_005.md)). Even with explicit temporal structure, current `MemoryStore` retrieves by state-tag overlap not timestamp pattern, so memory tier can't exploit periodicity. Real test of the hypothesis requires building time-aware retrieval.
 8. **The fitness function in E001-E006 was masking the cognition advantage, not inflating it** ([E007](EXPERIMENT_007.md)). With `--no-coop-fitness`, full > reflex jumps from +0.086/+0.093 to +0.298/+0.240 in the two envs (~3× bigger). The cooperation reward was paying cognitive agents to burn energy on share events that hurt survival.
 9. **"Pro-social selection emerges unprompted" from E003 was wrong** ([E007](EXPERIMENT_007.md)). With the cooperation reward removed, cognitive agents nearly stop cooperating (1500/episode → 10/episode). The pro-sociality was selection chasing the fitness term, not emergent altruism.
+10. **The headline survives n=20 robustness** ([E008](EXPERIMENT_008.md)). Full > reflex on survival in the no-coop-fitness condition: cyclic +0.290 ± 0.038, hard grid +0.243 ± 0.046, both **20/20 seeds positive**, binomial p ≤ 1.91e-06. n=5 estimate was within ±0.008 of the n=20 mean.
+11. **Time-aware memory delivers the first real memory-tier lift** ([E006](EXPERIMENT_006.md)). Per-tile food-observation history + `predict_food_return` lifts memory tier cyclic survival 0.629 → 0.767. Memory−reflex gap goes from +0.015 (within noise) to +0.153, sign-consistent 5/5. Confirms the E005 prediction that memory was bottlenecked by retrieval, not by env design.
 
 ## What's still load-bearing but unverified
 
@@ -35,12 +39,10 @@ Read in this order:
 
 ## Open questions ranked
 
-(See [ROADMAP.md](ROADMAP.md) for the phased plan; the items below are the Phase-2 verification queue.)
+(See [ROADMAP.md](ROADMAP.md) for the phased plan. Phase 1 done; Phase 2 mostly done.)
 
-1. **E005 — Cyclic env tier ablation.** Does memory tier finally beat reflex when the env has temporal structure to learn? _Running now._
-2. **E006 — Knob isolation with v2 memory + decoupled fitness.** Re-run E003's per-knob attribution with the corrected memory tier and `--no-coop-fitness`. Does the story hold?
-3. **E007 — `--no-coop-fitness` on E002 hard-env.** Does full > reflex on survival hold without the tautological cooperation reward? Most important test in the queue.
-4. **E008 — n=20 seeds on the headline.** Convert "suggestive" (n=5) to "robust" (n=20, sign-consistency → binomial p ≤ 9.5e-7).
-5. **E009 — Transfer evaluation.** Train in env A, evaluate (no learning) in env B. Generalization is the actual proxy for "intelligence."
-6. **E010 — Real `LLMPolicy` implementation.** Wire the Anthropic SDK with prompt caching; compare LLM tier against rule-based on transfer envs.
-7. **E011+ — Add cognitive layers** (theory of mind, shared intentionality, culture) only after Phase 2 verification clears.
+1. **E006b — verify time-aware memory doesn't HURT in random-respawn env.** The E006 retrieval is tuned for periodic respawn. Confirm it doesn't degrade memory tier in `GridWorldEnvironment` where periodicity isn't there to exploit.
+2. **E009 — Transfer evaluation.** Train in env A, evaluate (no learning) in env B. Generalization is the actual proxy for "intelligence."
+3. **E012 — Mandatory-cooperation tile.** Now that we know cognitive agents won't cooperate without a fitness reward, test whether they will when the *environment* requires cooperation for survival.
+4. **E010 — Real `LLMPolicy` implementation.** Wire the Anthropic SDK with prompt caching; compare LLM tier against rule-based on transfer envs.
+5. **E011+ — Add cognitive layers** (theory of mind, shared intentionality, culture) — Phase 3 work.

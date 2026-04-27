@@ -153,6 +153,9 @@ class Agent:
         self.memory.add(ev)
         # Track novelty: count this state-tag as visited.
         self.novel_state_tags.add(_state_tag(observation))
+        # E006: per-tile food-observation history for time-aware retrieval.
+        # Cheap O(visible_food) per step.
+        self.memory.observe_local_view(observation, timestamp)
         # Reinforce retrieval of memories that matched this observation; they
         # proved useful enough to consult.
         similar = self.memory.retrieve_similar(observation, action=action, k=3)

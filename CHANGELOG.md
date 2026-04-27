@@ -37,7 +37,21 @@ Major restructuring to convert the toy ablation testbed into a defensible founda
 - **MemoryPolicy action-priority order matches ReflexPolicy** ([`src/pdi/cognition.py`](src/pdi/cognition.py)): food-seeking → hazard dodge → shelter → memory consult → random. Pre-fix, memory consultation could preempt food-seeking, producing high run-to-run variance (stdev 0.078 vs 0.022 post-fix). Note: a v1 attempt that put hazard-dodge before food-seeking actually tanked survival 0.21 points in scarcity regimes — only v2 (matching Reflex priority exactly) is correct. See [E004](EXPERIMENT_004.md) for the full story.
 
 ### Tests
-- 32 tests pass (was 19). Added: 8 environment tests, 5 fitness/LLM tests.
+- 40 tests pass (was 19 → 32 after foundation refit → 40 after E006). Added: 8 environment tests, 5 fitness/LLM tests, 8 temporal-memory tests.
+
+### Added — time-aware memory retrieval (E006)
+- `MemoryStore.tile_food_observations: dict[(x,y) → list[(step, has_food)]]` — per-tile food-observation log populated by every agent every step.
+- `MemoryStore.observe_tile()`, `observe_local_view()`, `predict_food_return()`, `known_feeding_ground()`.
+- `MemoryPolicy.choose_action` now consults `predict_food_return` when standing on (or near) a known feeding ground, choosing to wait or walk toward predicted-food tiles.
+- `tests/test_memory_temporal.py` — 8 unit tests for the new retrieval.
+- Result: memory tier in cyclic env survival jumps 0.629 → 0.767 (paired-seed lift +0.138, sign-consistent 5/5). See [E006](EXPERIMENT_006.md).
+
+### Verified — n=20 robustness (E008)
+- Ran 120 new runs across 15 new seeds × 4 tiers × 2 envs to extend the E007 finding to n=20.
+- Full > reflex survival in cyclic: +0.290 ± 0.038, **20/20 seeds positive**, p=1.91e-06.
+- Full > reflex survival in hard grid: +0.243 ± 0.046, **20/20 seeds positive**, p=1.91e-06.
+- Compute moved off the Mac (which was freezing under 8-parallel local) onto a 4-core Tailscale VPS with a systemd-managed idempotent chain script that survived two unattended-upgrade reboots.
+- See [E008](EXPERIMENT_008.md).
 
 ## 0.1.0 — 2026-04-24
 

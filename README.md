@@ -27,9 +27,11 @@ See [EXPERIMENTS.md](EXPERIMENTS.md) for the full chronological log. Top-line:
 
 - **The architecture works** ([E001](EXPERIMENT_001.md)). Genomes evolve, populations converge under selection, metrics differ across cognition tiers.
 - **Cognition is regime-dependent** ([E002](EXPERIMENT_002.md)). It costs survival in easy environments and pays off in hard ones.
-- **The pay-off requires multi-factor pressure** ([E003](EXPERIMENT_003.md)). At 5 seeds, full-tier survival beats reflex by +0.093 ± 0.040, sign-consistent across all 5 seeds. But no single environmental knob (food scarcity, hazards, slow respawn) produces the inversion — only the combined three-knob regime does.
-- **Pro-social selection emerges unprompted.** Across all seeds in cognitive tiers, betrayal frequency drops over generations even though the fitness function does not penalize betrayal directly.
-- **Memory tier had a policy bug** ([E004](EXPERIMENT_004.md)) that made it skip food-seeking. Diagnosed, fixed, and verified.
+- **The pay-off requires multi-factor pressure** ([E003](EXPERIMENT_003.md)). No single environmental knob (food scarcity, hazards, slow respawn) produces the inversion — only the combined three-knob regime does.
+- **Memory tier had a policy bug** ([E004](EXPERIMENT_004.md)) that made it skip food-seeking. Diagnosed, fixed, verified.
+- **Cognition advantage is real and ~3× larger than originally measured** ([E007](EXPERIMENT_007.md), [E008](EXPERIMENT_008.md)). After ablating the cooperation tautology in fitness, full > reflex survival is **+0.290 ± 0.038** (cyclic env) and **+0.243 ± 0.046** (hard grid env), **sign-consistent across all 20 seeds**, binomial p ≤ 1.91e-06.
+- **The "pro-social selection" claim was wrong.** With cooperation no longer rewarded in fitness, evolved cognitive agents stop sharing (1500/episode → ~10/episode) and survive *more*. The fitness function was misdirecting them.
+- **Time-aware memory delivers a real lift** ([E006](EXPERIMENT_006.md)). Per-tile food-observation history + period prediction lifts memory-tier survival 0.629 → 0.767 in cyclic env. First robust memory-tier-beats-reflex result.
 
 The lineage is not yet validated. We have one regime where full-tier cognition beats reflex on survival, with the effect requiring compound environmental pressure. The honest framing is "suggestive directional evidence" not "thesis confirmed."
 
