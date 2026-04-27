@@ -31,7 +31,8 @@ See [EXPERIMENTS.md](EXPERIMENTS.md) for the full chronological log. Top-line:
 - **Memory tier had a policy bug** ([E004](EXPERIMENT_004.md)) that made it skip food-seeking. Diagnosed, fixed, verified.
 - **Cognition advantage is real and ~3× larger than originally measured** ([E007](EXPERIMENT_007.md), [E008](EXPERIMENT_008.md)). After ablating the cooperation tautology in fitness, full > reflex survival is **+0.290 ± 0.038** (cyclic env) and **+0.243 ± 0.046** (hard grid env), **sign-consistent across all 20 seeds**, binomial p ≤ 1.91e-06.
 - **The "pro-social selection" claim was wrong.** With cooperation no longer rewarded in fitness, evolved cognitive agents stop sharing (1500/episode → ~10/episode) and survive *more*. The fitness function was misdirecting them.
-- **Time-aware memory delivers a real lift** ([E006](EXPERIMENT_006.md)). Per-tile food-observation history + period prediction lifts memory-tier survival 0.629 → 0.767 in cyclic env. First robust memory-tier-beats-reflex result.
+- **Time-aware memory delivers a real lift** ([E006](EXPERIMENT_006.md)). Per-tile food-observation history + period prediction lifts memory-tier survival 0.629 → 0.767 in cyclic env. First robust memory-tier-beats-reflex result. Doesn't hurt in non-periodic envs ([E006b](EXPERIMENT_006b.md)).
+- **Cognition transfers between envs** ([E009](EXPERIMENT_009.md)). Frozen genomes evaluated in an env they weren't trained in still beat reflex by ≈ the same margin. Cyclic-trained: gap +0.300 home → +0.293 abroad (5/5 seeds). Grid-trained: +0.352 home → +0.308 abroad (5/5 seeds). First evidence of a generalizable cognitive trait, not just env-specific overfitting.
 
 The lineage is not yet validated. We have one regime where full-tier cognition beats reflex on survival, with the effect requiring compound environmental pressure. The honest framing is "suggestive directional evidence" not "thesis confirmed."
 

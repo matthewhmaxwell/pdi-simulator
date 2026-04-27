@@ -19,30 +19,36 @@ What we have now is a small evolutionary sandbox with pluggable cognition tiers,
 | Per-component score export (`survival_score_mean`, etc.) | ✅ done | Each fitness contribution is independently auditable in `metrics.csv`. |
 | Novelty tracking (`avg_novelty`) | ✅ done | Unique state-tags visited per agent per episode — cognition-independent exploration signal. |
 | `LLMPolicy` interface stub | ✅ done | Wired through CLI/build_policy; falls through to `FullPolicy` for now. Real call deferred to E010+. |
-| E005: tier ablation in CyclicEnvironment | 🟡 in progress | Verify the new env actually rewards memory differently. |
+| E005: tier ablation in CyclicEnvironment | ✅ done | First monotonic tier ordering; full > reflex generalizes (+0.086, sign-consistent 5/5). Memory needed time-aware retrieval (E006). |
 
-## Phase 2 — Verify the foundation actually works
+## Phase 2 — Verify the foundation actually works  ✅ DONE
 
 **Goal:** before piling new mechanics on, confirm the foundation does what we built it to do.
 
-| Item | Why |
-|------|-----|
-| **E005** — tier ablation in CyclicEnvironment | Did adding temporal structure make memory tier finally beat reflex? If not, our env-design hypothesis is wrong and we need to revisit before adding more envs. |
-| **E006** — re-run knob isolation with v2 memory + decoupled fitness | Tightens E003's attribution claims with the corrected memory tier and without the cooperation tautology. |
-| **E007** — `--no-coop-fitness` on E002 hard-env config | The most important test in the queue. Does full > reflex on survival hold without the tautological reward? Either it does (firm signal) or it doesn't (we learn the win was mechanical). |
-| **E008** — n=20 seeds on the headline | Convert "suggestive" to "robust within this sandbox." With sign-consistency, n=20 → binomial p ≤ 9.5e-7. |
-| **E009** — transfer evaluation | Train agents in env A; evaluate (no learning) in env B. Reports generalization, the actual proxy for "intelligence." |
+| Item | Status | Result |
+|------|--------|--------|
+| **E005** — tier ablation in CyclicEnvironment | ✅ done | First monotonic tier ordering; memory bottlenecked by retrieval (→ E006). |
+| **E006** — time-aware memory retrieval | ✅ done | Memory tier cyclic survival 0.629 → 0.767 (+0.138 paired-seed lift, 5/5). |
+| **E006b** — verify E006 doesn't hurt non-periodic env | ✅ done | Memory ≈ reflex (+0.016 ± 0.023, within noise). Safe by default. |
+| **E007** — `--no-coop-fitness` on hard-env | ✅ done | Bigger, not smaller: full−reflex jumped from +0.086 → +0.298 (cyclic) and +0.093 → +0.240 (grid). The tautology was *masking* the advantage. |
+| **E008** — n=20 seeds on the headline | ✅ done | Cyclic +0.290 ± 0.038 (20/20, p=1.91e-06). Grid +0.243 ± 0.046 (20/20, p=1.91e-06). Robust. |
+| **E009** — transfer evaluation | ✅ done | Cognition transfers cleanly. Cyclic-trained: gap +0.300 home → +0.293 abroad. Grid-trained: +0.352 → +0.308. 5/5 each direction. |
 
 ## Phase 3 — Add cognitive layers with real grounding
 
-Only after Phase 2 validates the foundation should we add lineage rungs. Each rung gets its own experiment with a pre-stated prediction:
+Phase 2 validated the foundation. We now have empirical evidence that:
+- The cognition advantage is real, robust, and ~3× larger than originally measured.
+- It's a property of the genome, not the training env (transferable).
+- Memory tier finally outperforms reflex with the right retrieval mechanism.
+
+This is enough foundation to add new layers. Each rung gets its own experiment with a pre-stated prediction:
 
 | Rung | Experiment | Prediction (must state before running) |
 |------|------------|----------------------------------------|
+| Shared intentionality | **E012**: large-cache tile requires ≥2 adjacent agents to harvest | Cooperation should re-emerge in cognitive tiers when the env requires it (without fitness reward). |
+| LLM cognition | **E010**: real `LLMPolicy` implementation with prompt caching | LLM tier should beat hand-rolled cognition on novel transfer envs. |
 | Theory of mind | E011: agents track other agents' inferred self-models | Cognitive tiers should predict peer behavior more accurately than reflex baselines. |
-| Shared intentionality | E012: large-cache tile requires ≥2 adjacent agents to harvest | Survival should require cooperation under this mechanic; cooperators should outlast defectors. |
 | Culture | E013: offspring inherit a digest of parent's high-usefulness memories | Cumulative learning across generations should beat per-life learning in cyclic envs. |
-| LLM cognition | E010: real `LLMPolicy` implementation with prompt caching | LLM tier should beat hand-rolled cognition on novel transfer envs (where heuristics weren't tuned). |
 
 ## Phase 4 — What would let us drop "primate" and "intelligence"
 

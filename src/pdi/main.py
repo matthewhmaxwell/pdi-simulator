@@ -178,6 +178,156 @@ def run_cmd(generations, num_agents, episodes, grid, steps, food, hazards, shelt
     click.echo(f"  agents:  {rd / 'final_agents.jsonl'}")
 
 
+@cli.command("transfer-eval")
+@click.option("--source-run", required=True, help="Run id whose final_agents.jsonl supplies the genomes to evaluate.")
+@click.option(
+    "--env",
+    "env_name",
+    type=click.Choice(["grid", "cyclic"], case_sensitive=False),
+    required=True,
+    help="Environment to evaluate the transferred genomes in.",
+)
+@click.option("--episodes", default=20, type=int, help="Number of evaluation episodes.")
+@click.option("--steps", default=80, type=int, help="Max steps per episode.")
+@click.option("--grid", default=20, type=int, help="Grid size NxN.")
+@click.option("--food", default=15, type=int, help="Initial food count.")
+@click.option("--hazards", default=8, type=int, help="Hazard count.")
+@click.option("--shelters", default=4, type=int, help="Shelter count.")
+@click.option("--respawn", default=0.05, type=float, help="Food respawn rate per step.")
+@click.option("--tier", default=None, help="Override the cognition tier (default: read from source run config).")
+@click.option("--no-coop-fitness", is_flag=True, help="Use no-coop fitness weights for scoring.")
+@click.option("--seed", default=42, type=int, help="Random seed for the evaluation env + episode order.")
+@click.option("--label", default="transfer", help="Human label for the eval run.")
+@click.option("--run-id", default=None, help="Override auto-generated run id.")
+def transfer_eval_cmd(source_run, env_name, episodes, steps, grid, food, hazards, shelters,
+                      respawn, tier, no_coop_fitness, seed, label, run_id):
+    """Evaluate a population of evolved genomes in a different environment.
+
+    Loads the final population from `--source-run`, recreates each agent with
+    the same `StrategyGenome` but fresh memory/social/causal state, and runs
+    `--episodes` episodes in `--env`. NO selection or breeding happens — this
+    is a frozen-genome generalization test.
+
+    Output: a `metrics.csv` (one row per episode) plus the usual config/run
+    artifacts.
+    """
+    from .agent import Agent
+    from .environments import make_environment
+    from .evolution import run_episode
+    from .schemas import StrategyGenome
+
+    source_dir = _run_dir(source_run)
+    agents_path = source_dir / "final_agents.jsonl"
+    if not agents_path.exists():
+        raise click.ClickException(f"No source run found: {source_run}")
+
+    # Resolve cognition tier from source config if not overridden.
+    src_cfg = json.loads((source_dir / "config.json").read_text()) if (source_dir / "config.json").exists() else {}
+    src_tier = src_cfg.get("evo", {}).get("cognition_tier", "full")
+    eval_tier = (tier or src_tier).lower()
+
+    # Build the eval-time SimConfig (a fresh one — fitness weights, env config etc).
+    fitness_weights = FitnessWeights()
+    if no_coop_fitness:
+        fitness_weights.cooperation = 0.0
+        fitness_weights.betrayal_penalty = 0.0
+
+    env_cfg = EnvironmentConfig(
+        grid_size=grid, max_steps=steps,
+        num_food=food, num_hazards=hazards,
+        num_shelters=shelters, food_respawn_rate=respawn,
+    )
+
+    # Run id + dir.
+    run_id = run_id or f"{int(time.time())}_{uuid.uuid4().hex[:6]}_{label}"
+    rd = _run_dir(run_id)
+    rd.mkdir(parents=True, exist_ok=True)
+    (rd / "config.json").write_text(json.dumps({
+        "type": "transfer_eval",
+        "source_run": source_run,
+        "source_tier": src_tier,
+        "eval_tier": eval_tier,
+        "env": env_name,
+        "episodes": episodes,
+        "no_coop_fitness": no_coop_fitness,
+        "seed": seed,
+        "env_config": {
+            "grid_size": grid, "max_steps": steps,
+            "num_food": food, "num_hazards": hazards,
+            "num_shelters": shelters, "food_respawn_rate": respawn,
+        },
+    }, indent=2))
+
+    rng = random.Random(seed)
+
+    # Recreate agents from saved genomes (fresh memory).
+    agents = []
+    for line in agents_path.read_text().splitlines():
+        rec = json.loads(line)
+        genome = StrategyGenome(**rec["strategy"])
+        agents.append(Agent.spawn(
+            generation=0, cfg=AgentConfig(),
+            cognition_tier=eval_tier, rng=rng,
+            strategy=genome,
+        ))
+    log.info(
+        f"[transfer-eval {run_id}] tier={eval_tier} env={env_name} "
+        f"agents={len(agents)} episodes={episodes} from source={source_run}"
+    )
+
+    # Run episodes WITHOUT breeding.
+    episode_records = []
+    for ep_idx in range(episodes):
+        # Reset fitness on every agent so each episode score is independent.
+        for a in agents:
+            a.state.fitness_score = 0.0
+        result = run_episode(agents, env_cfg, generation=0, rng=rng,
+                             env_name=env_name, fitness_weights=fitness_weights)
+        per_ep = {
+            "episode": ep_idx,
+            "survivors": result.survivors,
+            "total_food_collected": result.total_food_collected,
+            "cooperation_events": result.cooperation_events,
+            "betrayal_events": result.betrayal_events,
+            "avg_prediction_accuracy": result.avg_prediction_accuracy,
+            "steps": result.steps,
+            "survival_rate": result.survivors / max(len(agents), 1),
+            "avg_fitness": sum(a.state.fitness_score for a in agents) / max(len(agents), 1),
+        }
+        episode_records.append(per_ep)
+        log.info(
+            f"  ep{ep_idx:02d}: surv={per_ep['survival_rate']:.2f} "
+            f"food={per_ep['total_food_collected']} "
+            f"coop={per_ep['cooperation_events']} fit={per_ep['avg_fitness']:.1f}"
+        )
+
+    # Export.
+    import csv as _csv
+    metrics_path = rd / "metrics.csv"
+    if episode_records:
+        with metrics_path.open("w", newline="", encoding="utf-8") as fh:
+            writer = _csv.DictWriter(fh, fieldnames=list(episode_records[0].keys()))
+            writer.writeheader()
+            writer.writerows(episode_records)
+    (rd / "summary.json").write_text(json.dumps({
+        "run_id": run_id,
+        "source_run": source_run,
+        "eval_tier": eval_tier,
+        "env": env_name,
+        "n_agents": len(agents),
+        "episodes": episodes,
+        "mean_survival_rate": sum(r["survival_rate"] for r in episode_records) / max(len(episode_records), 1),
+        "mean_food": sum(r["total_food_collected"] for r in episode_records) / max(len(episode_records), 1),
+        "mean_fitness": sum(r["avg_fitness"] for r in episode_records) / max(len(episode_records), 1),
+    }, indent=2))
+
+    click.echo(f"\nTransfer eval complete: {run_id}")
+    click.echo(f"  source:        {source_run} (tier={src_tier})")
+    click.echo(f"  eval env+tier: {env_name} / {eval_tier}")
+    click.echo(f"  csv:           {metrics_path}")
+    click.echo(f"  summary:       {rd / 'summary.json'}")
+
+
 @cli.command("inspect-agent")
 @click.argument("agent_id")
 @click.option("--run-id", required=True, help="Run id containing the agent.")

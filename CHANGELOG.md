@@ -46,6 +46,13 @@ Major restructuring to convert the toy ablation testbed into a defensible founda
 - `tests/test_memory_temporal.py` — 8 unit tests for the new retrieval.
 - Result: memory tier in cyclic env survival jumps 0.629 → 0.767 (paired-seed lift +0.138, sign-consistent 5/5). See [E006](EXPERIMENT_006.md).
 
+### Added — `pdi transfer-eval` CLI command (E009)
+- New CLI command in [`src/pdi/main.py`](src/pdi/main.py) that loads `final_agents.jsonl` from a completed source run, recreates each agent with the same `StrategyGenome` but fresh memory/social/causal state, and runs N evaluation episodes in a chosen env. NO selection or breeding — frozen-genome generalization test.
+- Output: `metrics.csv` (one row per episode), `summary.json` (aggregate stats), `config.json` (run metadata including source-run reference).
+- Includes `--tier` override, `--no-coop-fitness` ablation, configurable env knobs.
+- 4 unit tests in [`tests/test_transfer_eval.py`](tests/test_transfer_eval.py) — 44 tests pass total (was 40).
+- Used in [E009](EXPERIMENT_009.md) to confirm the cognition advantage transfers cleanly between cyclic and hard-grid envs.
+
 ### Verified — n=20 robustness (E008)
 - Ran 120 new runs across 15 new seeds × 4 tiers × 2 envs to extend the E007 finding to n=20.
 - Full > reflex survival in cyclic: +0.290 ± 0.038, **20/20 seeds positive**, p=1.91e-06.
